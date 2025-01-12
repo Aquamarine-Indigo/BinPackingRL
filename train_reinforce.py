@@ -42,9 +42,9 @@ class BinPacking_Environment:
 		used_positions = np.sum(self.height_map > 0)
 		max_height = np.max(self.height_map)
 		used_volume = used_positions * max_height
-		reward = self.packed_volume / used_volume
+		# reward = self.packed_volume / used_volume
 		# reward = self.packed_volume / self.total_volume - old_util
-		# reward = np.prod(self.items_list[self.item_ptr])
+		reward = np.prod(self.items_list[self.item_ptr])
 		# state = self.get_state(self.clip_num)
 		self.item_ptr += 1
 		self.used += 1
@@ -118,18 +118,21 @@ def get_action_from_idx(placement, idx, clip_num, height_map=None, item_size=Non
 			# print("invalid placement")
 			return (place[0], place[1], 0, -1)
 		return (place[0], place[1], rotate, height)
-	return (place[0], place[1], 0)
+	return (place[0], place[1], rotate)
 
-def train(item_list, gamma=0.99, lr=0.001, clip_num=50, max_episode=300, max_steps=100, device_name='cpu'):
+def train(item_lists, gamma=0.99, lr=0.001, clip_num=50, max_episode=300, max_steps=100, device_name='cpu'):
 	device = torch.device(device_name)
 	model = BPP_Model_EMS(num_placement=clip_num, batch_size=1, embed_size=128, feature_mlp_layers=[256, 128], feature_mlp_output=64).to(device)
 	optimizer = torch.optim.Adam(model.parameters(), lr=0.001, eps=1e-6, weight_decay=1e-4)
 	progress_bar = tqdm(range(max_episode), desc='Training')
 	# max_steps = 200
-	item_list.sort(key=lambda x: max(x[0], x[1], x[2]), reverse=True)
+	n_item_lists = len(item_lists)
+	for i in range(n_item_lists):
+		item_lists[i].sort(key=lambda x: max(x[0], x[1], x[2]), reverse=True)
 	model.train()
 	for episode in progress_bar:
 		# random.shuffle(item_list)
+		item_list = item_lists[episode % n_item_lists]
 		env = BinPacking_Environment((100, 100, 100), item_list, clip_num=clip_num, device=device_name)
 		step_cnt = 0
 		done = False
@@ -173,7 +176,7 @@ def train(item_list, gamma=0.99, lr=0.001, clip_num=50, max_episode=300, max_ste
 				print("EMS feature: ", ems_feature)
 				print("Item feature: ", item_feature)
 				print("step count: ", step_cnt)
-				torch.save(model.state_dict(), f"checkpoints/model_nan.pth")
+				torch.save(model.state_dict(), f"checkpoints_size_reward/model_nan.pth")
 				exit()
 			# print(action_idx)
 			action = get_action_from_idx(placement, action_idx, clip_num)
@@ -228,19 +231,32 @@ def train(item_list, gamma=0.99, lr=0.001, clip_num=50, max_episode=300, max_ste
 		progress_bar.set_description(f"Episode {episode + 1}, space_util: {env.get_utilization()*100:.4f}%, unused: {env.get_remaining_cnt()}/{env.get_item_cnt()}")
 		if (episode + 1) % 10 == 0:
 			print(f"Episode {episode + 1} loss: {loss.item()}")
-			torch.save(model.state_dict(), f"checkpoints/model_{episode + 1}.pth")
+			torch.save(model.state_dict(), f"checkpoints_size_reward/model_{episode + 1}.pth")
 	return model
 
-if __name__ == "__main__":
-	items = np.load("dataset_map/item_list.npy")
-	# print(items)
-	item_list_ = items.tolist()
-	print(item_list_)
-	item_list = []
-	for item in item_list_:
-		item_list.append(np.array(item))
-	# train()
-	model = train(item_list, clip_num=100, device_name='cuda')
-	torch.save(model.state_dict(), f"models/model_{current_time}_.pth")
+def load_item_lists(filenames):
+	item_lists = []
+	for filename in filenames:
+		items = np.load(filename)
+		# print(items)
+		item_list_ = items.tolist()
+		print(item_list_)
+		item_list = []
+		for item in item_list_:
+			item_list.append(np.array(item))
+		item_lists.append(item_list)
+	return item_lists
+		
 
-# [array([43, 26, 44]), array([15, 11, 26]), array([73, 21, 17]), array([35,  1, 37]), array([32, 13, 77]), array([21,  1, 65]), array([40, 24, 17]), array([ 8, 64, 17]), array([23, 15, 17]), array([ 3, 15, 17]), array([15, 12, 41]), array([ 6, 10, 35]), array([11,  6, 71]), array([10, 24, 83]), array([27, 21, 17]), array([18, 28, 56]), array([40, 13, 17]), array([53,  6, 56]), array([35, 18, 37]), array([ 6, 13, 62]), array([39, 19, 15]), array([11, 11, 27]), array([ 4, 12, 23]), array([11, 28, 31]), array([33,  6, 71]), array([10, 24, 28]), array([21, 12, 24]), array([43, 26, 24]), array([10, 18, 12]), array([32,  3, 71]), array([14, 64, 17]), array([ 6,  1, 77]), array([10, 24,  9]), array([49, 15, 17]), array([20, 54, 16]), array([66, 10, 17]), array([20, 54,  1]), array([100,  15,  12]), array([ 5, 25, 65]), array([ 6, 12, 42]), array([11, 15, 83]), array([11, 26, 39]), array([58, 11, 65]), array([100,  13,  12]), array([44,  3, 71]), array([83,  6, 25]), array([18,  8, 16]), array([11, 18, 18]), array([41, 13, 77]), array([15, 11,  5]), array([ 6, 10, 42]), array([58, 11, 12]), array([11, 17, 27]), array([22, 16,  4]), array([22, 16, 73]), array([15,  1, 56]), array([30,  6, 58]), array([18,  6, 56]), array([30,  6, 13]), array([15, 12, 65]), array([29, 66,  6]), array([19, 66,  6]), array([17,  6, 25]), array([18, 16,  1]), array([18, 16, 76]), array([11, 28, 25]), array([25, 15, 17]), array([11, 26,  5]), array([18, 42,  4]), array([21, 16, 77]), array([100,   6,   2]), array([35, 19, 30]), array([11,  5, 83]), array([ 6, 12, 41]), array([26, 25,  6]), array([ 7, 20, 77]), array([10, 18, 71]), array([24,  3, 71]), array([10, 24, 46]), array([18,  8, 40]), array([12, 64, 17]), array([74, 19,  4]), array([ 7,  6, 77]), array([15,  5, 56]), array([39, 19, 52]), array([43, 26,  6]), array([40, 17, 17]), array([ 6, 13, 15]), array([11, 18, 65]), array([32,  6, 56]), array([11, 26, 33]), array([ 6, 54, 17]), array([18, 42, 17]), array([ 2, 12, 23]), array([15, 11, 46]), array([31, 66,  6]), array([43, 26,  3])]
+if __name__ == "__main__":
+	# items = np.load("dataset_map/item_list.npy")
+	# # print(items)
+	# item_list_ = items.tolist()
+	# print(item_list_)
+	# item_list = []
+	# for item in item_list_:
+	# 	item_list.append(np.array(item))
+	# # train()
+	item_lists = load_item_lists(["dataset_map/item_list.npy", "dataset_map/item_list_.npy"])
+	model = train(item_lists, clip_num=100, device_name='cuda', max_episode=500)
+	torch.save(model.state_dict(), f"models/model_{current_time}_.pth")

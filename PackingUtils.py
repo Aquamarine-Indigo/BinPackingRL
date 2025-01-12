@@ -337,15 +337,15 @@ def generate_EMS_and_mask(height_map, coming_item, height_limit=100, clip_num=10
 		# xi, yi = placement[0], placement[1]
 		x_max, y_min, height, x_min, y_max = placement[0], placement[1], placement[2], placement[3], placement[4]
 		if x_max - x_min + 1 >= li and y_max - y_min + 1 >= wi:
-			possible_placements.append([x_min+li-1, y_min, height, x_min, y_min+wi-1])
-			possible_placements.append([x_max, y_min, height, x_max-li+1, y_min+wi-1])
-			possible_placements.append([x_min+li-1, y_max-wi+1, height, x_min, y_max])
-			possible_placements.append([x_max, y_max-wi+1, height, x_max-li+1, y_max])
+			possible_placements.append([x_min+li-1, y_min, find_min_height(height_map, (x_min+li-1, y_min), coming_item, 0), x_min, y_min+wi-1])
+			possible_placements.append([x_max, y_min, find_min_height(height_map, (x_max, y_min), coming_item, 0), x_max-li+1, y_min+wi-1])
+			possible_placements.append([x_min+li-1, y_max-wi+1, find_min_height(height_map, (x_min+li-1, y_max-wi+1), coming_item, 0), x_min, y_max])
+			possible_placements.append([x_max, y_max-wi+1, find_min_height(height_map, (x_max, y_max-wi+1), coming_item, 0), x_max-li+1, y_max])
 		if x_max - x_min + 1 >= wi and y_max - y_min + 1 >= li:
-			possible_placements.append([x_min+wi-1, y_min, height, x_min, y_min+li-1])
-			possible_placements.append([x_max, y_min, height, x_max-wi+1, y_min+li-1])
-			possible_placements.append([x_min+wi-1, y_max-li+1, height, x_min, y_max])
-			possible_placements.append([x_max, y_max-li+1, height, x_max-wi+1, y_max])
+			possible_placements.append([x_min+wi-1, y_min, find_min_height(height_map, (x_min+wi-1, y_min), coming_item, 1), x_min, y_min+li-1])
+			possible_placements.append([x_max, y_min, find_min_height(height_map, (x_max, y_min), coming_item, 1), x_max-wi+1, y_min+li-1])
+			possible_placements.append([x_min+wi-1, y_max-li+1, find_min_height(height_map, (x_min+wi-1, y_max-li+1), coming_item, 1), x_min, y_max])
+			possible_placements.append([x_max, y_max-li+1, find_min_height(height_map, (x_max, y_max-li+1), coming_item, 1), x_max-wi+1, y_max])
 		# print(type(xi), type(li))
 		# print(height_map.shape)
 		# print(li, wi, hi)
@@ -382,6 +382,7 @@ def generate_EMS_and_mask(height_map, coming_item, height_limit=100, clip_num=10
 				break
 	# if len(result_placements) < clip_num:
 	# 	result_placements.extend([[-1, -1, -1, -1, -1] for _ in range(clip_num - len(result_placements))])
+	result_placements.sort(key=lambda x: x[2], reverse=True)
 	if len(result_placements) < clip_num:
 		result_placements.extend([[0, 0, 0, 0, 0] for _ in range(clip_num - len(result_placements))])
 		
